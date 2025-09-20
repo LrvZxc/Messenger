@@ -1,5 +1,6 @@
 import socket
 import threading
+import json
 
 HOST = "127.0.0.1"
 PORT = 45203
@@ -20,7 +21,12 @@ def handle_msg(conn, msg):
 def handle_client(conn, addr):
     print(f"[+] {addr} подключился")
     clients.append(conn)
+    users[conn] = "default"
+    userlit = json.dumps(list(users.values())).encode()
     while True:
+        
+        for item in clients:
+            item.sendall(userlit)
         try:
             msg_bytes = conn.recv(1024)
             if not msg_bytes:

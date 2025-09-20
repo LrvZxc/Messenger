@@ -2,6 +2,8 @@ import socket
 import threading
 import customtkinter as ctk
 from tkinter import ttk
+import json
+import mserver
 
 HOST = "127.0.0.1"
 PORT = 45203
@@ -12,7 +14,7 @@ ctk.set_default_color_theme("blue")
 app = ctk.CTk()
 app.geometry("750x600")
 app.title("Chat Client")
-
+users = []
 # Notebook для вкладок
 notebook = ttk.Notebook(app)
 notebook.pack(fill="both", expand=True, padx=10, pady=10)
@@ -84,8 +86,22 @@ send = ctk.CTkButton(chat_tab, text="Send", command=send_msg)
 send.pack(side="left", pady=5)
 
 app.bind("<Return>", lambda event: send_msg())
+#====================== Получать список пользователей ===========
+def receive_users(data):
+    users = json.loads(data)
+    update_users(users)
+
+def update_users(list):
+    global users
+    if users != list:
+        users = list
+        print("Обновлённый список пользователей:", users)
+    else:
+        return
 # ===================== Отправить сообщение =====================
 choose_tab = ctk.CTkFrame(notebook)
+personal_chat = ctk.CTkTextbox(choose_tab, width=400, height= 300)
+personal_chat.pack(pady = 10)
 notebook.add(choose_tab, text="Выбор отправителя")
 choosen = ""
 def choose():
