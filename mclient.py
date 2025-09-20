@@ -85,16 +85,17 @@ send.pack(side="left", pady=5)
 
 app.bind("<Return>", lambda event: send_msg())
 # ===================== Отправить сообщение =====================
-choose_tab = ctk.CTk(notebook)
-notebook.add(chat_tab, text="Выбор отправителя")
+choose_tab = ctk.CTkFrame(notebook)
+notebook.add(choose_tab, text="Выбор отправителя")
 choosen = ""
 def choose():
     choosen = id_entry.get()
-id_label = ctk.CTkLabel(choose_tab, text = "напишите айди пользователя")
+id_label = ctk.CTkLabel(choose_tab, text = "напишите имя пользователя")
 id_label.pack(padx=5)
 id_entry = ctk.CTkEntry(choose_tab, placeholder_text="вот тут")
 id_entry.pack(padx = 10)
 choosewho = ctk.CTkButton(choose_tab, text = "Choose", command=choose)
+choosewho.pack(padx = 20)
 
 
 # ===================== Socket =====================
