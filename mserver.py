@@ -21,16 +21,17 @@ def handle_msg(conn, msg):
 def handle_client(conn, addr):
     print(f"[+] {addr} подключился")
     clients.append(conn)
-    users[conn] = "default"
-    userlit = json.dumps(list(users.values())).encode()
+    users[conn] = "default" 
+    userlit = json.dumps(list(users.values())).encode()  #Может надо будет переделать отправку сообщений под json чтобы сервак различал 
+    for i in clients:
+        i.sendall(userlit)                                                          # Сообщение и Список пользователей
     while True:
         
-        for item in clients:
-            item.sendall(userlit)
+        
         try:
             msg_bytes = conn.recv(1024)
             if not msg_bytes:
-                print("bREAK")
+                
                 break
 
 
