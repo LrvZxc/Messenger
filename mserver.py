@@ -8,23 +8,29 @@ PORT = 45203
 clients = []
 users = {}
 def handle_msg(conn, msg):
-    if msg.strip() == "":
-      
-        return
+    if msg["message"].strip() == "":
+        return     
     for client in clients:
         if client != conn:
-            client.sendall(msg.encode("utf-8"))
+            client.sendall(json.dumps(msg).encode("utf-8"))
               
                          
+  
+def handle_update_userlist(conn, nickname):
+    users[conn] = nickname
+    for client in clients:
+        client.sendall(json.dumps({
+            "type": "users",
+            "users": list(users.values())
+        }).encode("utf-8"))
                     
 
 def handle_client(conn, addr):
     print(f"[+] {addr} подключился")
     clients.append(conn)
-    users[conn] = "default" 
-    userlit = json.dumps(list(users.values())).encode()  #Может надо будет переделать отправку сообщений под json чтобы сервак различал 
-    for i in clients:
-        i.sendall(userlit)                                                          # Сообщение и Список пользователей
+
+
+
     while True:
         
         
@@ -33,10 +39,20 @@ def handle_client(conn, addr):
             if not msg_bytes:
                 
                 break
-
+            
 
             msg = msg_bytes.decode("utf-8")
-            handle_msg(conn, msg)
+            message = json.loads(msg)
+            
+            if message["type"] == "message":
+                handle_msg(conn, message)
+            elif message["type"] == "usernametoadd":
+                nickname = message["username"]
+                handle_update_userlist(conn, nickname)
+
+
+            
+  
         except Exception as e:
             print("Ошибочка: ", e)
             break

@@ -7,7 +7,7 @@ import mserver
 
 HOST = "127.0.0.1"
 PORT = 45203
-
+userslist = []
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
@@ -50,9 +50,16 @@ def check_username():
     warning.pack_forget()
     username.configure(state="disabled")
     submit.configure(state="disabled")
+    client.sendall(json.dumps({
+        "type": "usernametoadd",
+        "username": "" + name
+    }).encode("utf-8"))
+    print(f"Отправлено {name}")
+    print(userslist)
     return True
 
 submit = ctk.CTkButton(chat_tab, text="Submit", command=check_username)
+
 submit.pack(pady=5)
 
 # Чат
@@ -73,7 +80,11 @@ def send_msg():
     if msg == "":
         return
     try:
-        client.sendall(f"{user}:{msg}".encode("utf-8"))
+        client.sendall(json.dumps({
+    "type": "message",
+    "username": "" + user,
+    "message": "" + msg
+}).encode("utf-8"))
         chat.configure(state="normal")
         chat.insert("end", f"{user}: {msg}\n")
         chat.configure(state="disabled")
@@ -88,16 +99,12 @@ send.pack(side="left", pady=5)
 app.bind("<Return>", lambda event: send_msg())
 #====================== Получать список пользователей ===========
 def receive_users(data):
+    global userslist
     users = json.loads(data)
-    update_users(users)
+    userslist = users
 
-def update_users(list):
-    global users
-    if users != list:
-        users = list
-        print("Обновлённый список пользователей:", users)
-    else:
-        return
+
+  
 # ===================== Отправить сообщение =====================
 choose_tab = ctk.CTkFrame(notebook)
 personal_chat = ctk.CTkTextbox(choose_tab, width=400, height= 300)
@@ -106,12 +113,18 @@ notebook.add(choose_tab, text="Выбор отправителя")
 choosen = ""
 def choose():
     choosen = id_entry.get()
+    client.sendall(json.dumps({
+        "type": "choose",
+        "username": "" + choosen
+        }).encode("utf-8"))
+    
 id_label = ctk.CTkLabel(choose_tab, text = "напишите имя пользователя")
 id_label.pack(padx=5)
 id_entry = ctk.CTkEntry(choose_tab, placeholder_text="вот тут")
 id_entry.pack(padx = 10)
 choosewho = ctk.CTkButton(choose_tab, text = "Choose", command=choose)
 choosewho.pack(padx = 20)
+
 
 
 # ===================== Socket =====================
@@ -126,14 +139,20 @@ def chat_insert(text, sender):
     chat.insert("end", f"{sender}: {text}\n")
     chat.configure(state="disabled")
     chat.see("end")
-
+                          
 def receive_msg():
     while True:
         try:
             data = client.recv(1024).decode("utf-8")
-            if data:
-                sender, text = data.split(":", 1)
+            data = json.loads(data)
+            if data["type"] == "message":
+                sender = data["username"]
+                text = data["message"]
+
                 app.after(0, chat_insert, text, sender)
+            elif data["type"] == "users":
+                users_data = json.dumps(data["users"])
+                app.after(0, receive_users, users_data)
         except:
             break
 
