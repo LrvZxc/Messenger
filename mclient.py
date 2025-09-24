@@ -3,18 +3,18 @@ import threading
 import customtkinter as ctk
 from tkinter import ttk
 import json
-import mserver
 
 HOST = "127.0.0.1"
 PORT = 45203
 userslist = []
+
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 app = ctk.CTk()
 app.geometry("750x600")
 app.title("Chat Client")
-users = []
+
 # Notebook для вкладок
 notebook = ttk.Notebook(app)
 notebook.pack(fill="both", expand=True, padx=10, pady=10)
@@ -37,6 +37,7 @@ warning = ctk.CTkLabel(chat_tab, text="", text_color="red")
 warning.pack(pady=5)
 warning.pack_forget()
 
+
 def check_username():
     name = username.get().strip()
     if len(name) > 17:
@@ -52,14 +53,13 @@ def check_username():
     submit.configure(state="disabled")
     client.sendall(json.dumps({
         "type": "usernametoadd",
-        "username": "" + name
+        "username": name
     }).encode("utf-8"))
     print(f"Отправлено {name}")
-    print(userslist)
     return True
 
-submit = ctk.CTkButton(chat_tab, text="Submit", command=check_username)
 
+submit = ctk.CTkButton(chat_tab, text="Submit", command=check_username)
 submit.pack(pady=5)
 
 # Чат
@@ -71,7 +71,8 @@ chat.configure(state="disabled")
 entry = ctk.CTkEntry(chat_tab, placeholder_text="Введите сообщение...", width=500)
 entry.pack(side="left", padx=10, pady=5)
 
-# Кнопка отправки
+
+# Отправка общего сообщения
 def send_msg():
     if not check_username():
         return
@@ -81,10 +82,10 @@ def send_msg():
         return
     try:
         client.sendall(json.dumps({
-    "type": "message",
-    "username": "" + user,
-    "message": "" + msg
-}).encode("utf-8"))
+            "type": "message",
+            "username": user,
+            "message": msg
+        }).encode("utf-8"))
         chat.configure(state="normal")
         chat.insert("end", f"{user}: {msg}\n")
         chat.configure(state="disabled")
@@ -93,53 +94,90 @@ def send_msg():
     except:
         print("Соединение с сервером потеряно")
 
+
 send = ctk.CTkButton(chat_tab, text="Send", command=send_msg)
 send.pack(side="left", pady=5)
 
 app.bind("<Return>", lambda event: send_msg())
-#====================== Получать список пользователей ===========
-def receive_users(data):
-    global userslist
-    users = json.loads(data)
-    userslist = users
 
-
-  
-# ===================== Отправить сообщение =====================
+# ===================== Личные сообщения =====================
 choose_tab = ctk.CTkFrame(notebook)
-personal_chat = ctk.CTkTextbox(choose_tab, width=400, height= 300)
-personal_chat.pack(pady = 10)
-notebook.add(choose_tab, text="Выбор отправителя")
+personal_chat = ctk.CTkTextbox(choose_tab, width=400, height=300)
+personal_chat.pack(pady=10)
+
+notebook.add(choose_tab, text="ЛС")
 choosen = ""
+
+
 def choose():
-    choosen = id_entry.get()
-    client.sendall(json.dumps({
-        "type": "choose",
-        "username": "" + choosen
-        }).encode("utf-8"))
-    
-id_label = ctk.CTkLabel(choose_tab, text = "напишите имя пользователя")
+    global choosen
+    choosen = id_entry.get().strip()
+    print(f"Выбран получатель: {choosen}")
+
+
+id_label = ctk.CTkLabel(choose_tab, text="Введите имя пользователя для ЛС")
 id_label.pack(padx=5)
-id_entry = ctk.CTkEntry(choose_tab, placeholder_text="вот тут")
-id_entry.pack(padx = 10)
-choosewho = ctk.CTkButton(choose_tab, text = "Choose", command=choose)
-choosewho.pack(padx = 20)
+
+id_entry = ctk.CTkEntry(choose_tab, placeholder_text="Никнейм")
+id_entry.pack(padx=10)
+
+choosewho = ctk.CTkButton(choose_tab, text="Choose", command=choose)
+choosewho.pack(padx=20)
+
+# Поле для личного сообщения
+personal_entry = ctk.CTkEntry(choose_tab, placeholder_text="Введите личное сообщение...", width=300)
+personal_entry.pack(pady=5)
 
 
+def send_personal_msg():
+    if not check_username():
+        return
+    msg = personal_entry.get().strip()
+    user = username.get().strip()
+    if msg == "" or choosen == "":
+        return
+    try:
+        client.sendall(json.dumps({
+            "type": "personal_message",
+            "username": user,
+            "message": msg,
+            "to": choosen
+        }).encode("utf-8"))
+        personal_chat.configure(state="normal")
+        personal_chat.insert("end", f"{user} to {choosen}: {msg}\n")
+        personal_chat.configure(state="disabled")
+        personal_entry.delete(0, "end")
+        personal_chat.see("end")
+    except:
+        print("Соединение с сервером потеряно")
+
+
+send_personal_btn = ctk.CTkButton(choose_tab, text="Send Personal", command=send_personal_msg)
+send_personal_btn.pack(pady=5)
 
 # ===================== Socket =====================
 client = None
+
+
 def start_client():
     global client
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((HOST, PORT))
+
 
 def chat_insert(text, sender):
     chat.configure(state="normal")
     chat.insert("end", f"{sender}: {text}\n")
     chat.configure(state="disabled")
     chat.see("end")
-                          
+
+
+def receive_users(data):
+    global userslist
+    userslist = json.loads(data)
+    print("Текущие пользователи:", userslist)
+
+
 def receive_msg():
     while True:
         try:
@@ -148,16 +186,24 @@ def receive_msg():
             if data["type"] == "message":
                 sender = data["username"]
                 text = data["message"]
-
                 app.after(0, chat_insert, text, sender)
+
+            elif data["type"] == "message_from_server":
+                personal_chat.configure(state="normal")
+                personal_chat.insert("end", f'{data["from"]} to {data["to"]}: {data["message"]}\n')
+                personal_chat.configure(state="disabled")
+                personal_chat.see("end")
+
             elif data["type"] == "users":
                 users_data = json.dumps(data["users"])
                 app.after(0, receive_users, users_data)
         except:
             break
 
+
 # ===================== Запуск =====================
 if __name__ == "__main__":
+    personal_chat.configure(state="disabled")
     start_client()
     threading.Thread(target=receive_msg, daemon=True).start()
     app.mainloop()
