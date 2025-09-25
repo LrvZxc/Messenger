@@ -46,9 +46,7 @@ class ChatTab(ctk.CTkFrame):
         self.send_btn.pack(side="left", padx=5)
 
         # Личные сообщения
-        self.personal_chat = ctk.CTkTextbox(self, width=400, height=150)
-        self.personal_chat.pack(pady=5)
-        self.personal_chat.configure(state="disabled")
+        
 
         self.id_entry = ctk.CTkEntry(self, placeholder_text="Никнейм для ЛС")
         self.id_entry.pack(padx=5)
@@ -56,12 +54,9 @@ class ChatTab(ctk.CTkFrame):
         self.choose_btn = ctk.CTkButton(self, text="Choose", command=self.choose)
         self.choose_btn.pack(padx=5)
 
-        self.personal_entry = ctk.CTkEntry(self, placeholder_text="Введите ЛС", width=200)
-        self.personal_entry.pack(pady=5)
+        
 
-        self.send_personal_btn = ctk.CTkButton(self, text="Send Personal", command=self.send_personal_msg)
-        self.send_personal_btn.pack(pady=5)
-
+       
         # Socket
         self.start_client()
         threading.Thread(target=self.receive_msg, daemon=True).start()
@@ -82,11 +77,8 @@ class ChatTab(ctk.CTkFrame):
         self.submit.configure(state="disabled")
         self.client.sendall(json.dumps({"type": "usernametoadd", "username": name}).encode("utf-8"))
         return True
-class PersonalChatTab(ctk.CTkFrame):
-    def __init__(self, master, title="Личный Чат"):
-        self.frame = ttk.Frame(master)
-        master.add(self.frame, text=title)
-        
+
+
     def send_msg(self):
         if not self.check_username():
             return
@@ -106,29 +98,16 @@ class PersonalChatTab(ctk.CTkFrame):
 
     def choose(self):
         self.choosen = self.id_entry.get().strip()
-        print(f"Выбран получатель: {self.choosen}")
+        if not self.choosen:
+            return
 
-    def send_personal_msg(self):
-        if not self.check_username():
-            return
-        msg = self.personal_entry.get().strip()
-        user = self.username.get().strip()
-        if msg == "" or self.choosen == "":
-            return
-        try:
-            self.client.sendall(json.dumps({
-                "type": "personal_message",
-                "username": user,
-                "message": msg,
-                "to": self.choosen
-            }).encode("utf-8"))
-            self.personal_chat.configure(state="normal")
-            self.personal_chat.insert("end", f"{user} to {self.choosen}: {msg}\n")
-            self.personal_chat.configure(state="disabled")
-            self.personal_entry.delete(0, "end")
-            self.personal_chat.see("end")
-        except:
-            print("Соединение с сервером потеряно")
+    # Создаём новую вкладку для ЛС
+        personal_tab = PersonalChatTab(self.master, self.client, self.username, self.id_entry, title=f"ЛС с {self.choosen}")
+        self.master.add(personal_tab, text=f"ЛС с {self.choosen}")
+        self.master.select(personal_tab)
+
+        print(f"Выбран получатель: {self.choosen}")
+    
 
     def start_client(self):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -143,11 +122,6 @@ class PersonalChatTab(ctk.CTkFrame):
                     sender = data["username"]
                     text = data["message"]
                     self.after(0, self.chat_insert, text, sender)
-                elif data["type"] == "message_from_server":
-                    self.personal_chat.configure(state="normal")
-                    self.personal_chat.insert("end", f'{data["from"]} to {data["to"]}: {data["message"]}\n')
-                    self.personal_chat.configure(state="disabled")
-                    self.personal_chat.see("end")
             except:
                 break
 
@@ -156,6 +130,65 @@ class PersonalChatTab(ctk.CTkFrame):
         self.chat.insert("end", f"{sender}: {text}\n")
         self.chat.configure(state="disabled")
         self.chat.see("end")
+class PersonalChatTab(ctk.CTkFrame):
+    def __init__(self, master, client, username_entry, choosen_entry, title="Личный Чат"):
+        super().__init__(master)
+        self.client = client                  # сокет клиента
+        self.username_entry = username_entry  # ссылка на Entry с ником
+        self.choosen_entry = choosen_entry    # ссылка на Entry с ником получателя
+        self.personal_chat = ctk.CTkTextbox(self, width=400, height=150)
+        self.personal_chat.pack(pady=5)
+        self.personal_chat.configure(state="disabled")
+
+        self.personal_entry = ctk.CTkEntry(self, placeholder_text="Введите ЛС", width=200)
+        self.personal_entry.pack(pady=5)
+
+        self.send_personal_btn = ctk.CTkButton(self, text="Send Personal", command=self.send_personal_msg)
+        self.send_personal_btn.pack(pady=5)
+
+        # Запуск потока для приёма личных сообщений
+        threading.Thread(target=self.receive_personal_msg, daemon=True).start()
+
+    def send_personal_msg(self):
+        user = self.username_entry.get().strip()
+        choosen = self.choosen_entry.get().strip()
+        msg = self.personal_entry.get().strip()
+
+        if not user or not choosen or not msg:
+            return
+
+        try:
+            self.client.sendall(json.dumps({
+                "type": "personal_message",
+                "username": user,
+                "message": msg,
+                "to": choosen
+            }).encode("utf-8"))
+
+            self.personal_chat.configure(state="normal")
+            self.personal_chat.insert("end", f"{user} to {choosen}: {msg}\n")
+            self.personal_chat.configure(state="disabled")
+            self.personal_entry.delete(0, "end")
+            self.personal_chat.see("end")
+        except:
+            print("Соединение с сервером потеряно")
+
+    def receive_personal_msg(self):
+        while True:
+            try:
+                data = self.client.recv(1024).decode("utf-8")
+                data = json.loads(data)
+                if data["type"] == "personal_message":
+                    sender = data["username"]
+                    recipient = data["to"]
+                    message = data["message"]
+                    self.personal_chat.configure(state="normal")
+                    self.personal_chat.insert("end", f"{sender} to {recipient}: {message}\n")
+                    self.personal_chat.configure(state="disabled")
+                    self.personal_chat.see("end")
+            except:
+                break
+
 
 # ===================== Главный класс приложения =====================
 class MainApp(ctk.CTk):
