@@ -185,7 +185,7 @@ class PersonalChatTab(ctk.CTkFrame):
                     self.personal_chat.configure(state="normal")
                     self.personal_chat.insert("end", f"{sender} to {recipient}: {message}\n")
                     self.personal_chat.configure(state="disabled")
-                    self.personal_chat.see("end")
+                    self.personal_chat.see("end")  #добавить бывообщем чтобы 
             except:
                 break
 

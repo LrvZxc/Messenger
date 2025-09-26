@@ -1,5 +1,6 @@
 @echo off
 REM Открываем сервер
+cd /d "%~dp0"
 start cmd /k "python mserver.py"
 
 REM Немного ждём, чтобы сервер успел стартовать
