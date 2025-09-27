@@ -139,14 +139,12 @@ class PersonalChatTab(ctk.CTkFrame):
         self.personal_chat = ctk.CTkTextbox(self, width=400, height=150)
         self.personal_chat.pack(pady=5)
         self.personal_chat.configure(state="disabled")
-
         self.personal_entry = ctk.CTkEntry(self, placeholder_text="Введите ЛС", width=200)
         self.personal_entry.pack(pady=5)
 
         self.send_personal_btn = ctk.CTkButton(self, text="Send Personal", command=self.send_personal_msg)
         self.send_personal_btn.pack(pady=5)
 
-        # Запуск потока для приёма личных сообщений
         threading.Thread(target=self.receive_personal_msg, daemon=True).start()
 
     def send_personal_msg(self):
@@ -154,7 +152,7 @@ class PersonalChatTab(ctk.CTkFrame):
         choosen = self.choosen_entry.get().strip()
         msg = self.personal_entry.get().strip()
 
-        if not user or not choosen or not msg:
+        if not user or not msg:
             return
 
         try:
@@ -176,7 +174,7 @@ class PersonalChatTab(ctk.CTkFrame):
     def receive_personal_msg(self):
         while True:
             try:
-                data = self.client.recv(1024).decode("utf-8")
+               
                 data = json.loads(data)
                 if data["type"] == "personal_message":
                     sender = data["username"]
@@ -200,21 +198,19 @@ class MainApp(ctk.CTk):
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Счётчик для названия вкладок
         self.tab_count = 0
 
-        # Кнопка для создания новой вкладки
+      
         self.new_tab_btn = ctk.CTkButton(self, text="Новый чат", command=self.add_new_tab)
         self.new_tab_btn.pack(pady=5)
 
-        # Создаём первую вкладку автоматически
         self.add_new_tab()
 
     def add_new_tab(self):
         self.tab_count += 1
         chat_tab = ChatTab(self.notebook, title=f"Чат {self.tab_count}")
         self.notebook.add(chat_tab, text=f"Чат {self.tab_count}")
-        self.notebook.select(chat_tab)  # автоматически переключаемся на новую вкладку
+        self.notebook.select(chat_tab)  
 
 # ===================== Запуск =====================
 if __name__ == "__main__":
