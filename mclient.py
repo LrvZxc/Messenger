@@ -46,7 +46,8 @@ class ChatTab(ctk.CTkFrame):
         self.send_btn.pack(side="left", padx=5)
 
         # Личные сообщения
-        
+        threading.Thread(target=self.receive_personal_msg, daemon=True).start()
+
 
         self.id_entry = ctk.CTkEntry(self, placeholder_text="Никнейм для ЛС")
         self.id_entry.pack(padx=5)
@@ -78,7 +79,24 @@ class ChatTab(ctk.CTkFrame):
         self.client.sendall(json.dumps({"type": "usernametoadd", "username": name}).encode("utf-8"))
         return True
 
-
+    def receive_personal_msg(self):
+        data = self.client.recv(1024).decode("utf-8")
+        while True:
+            try:
+               
+                dataa = json.loads(data)
+                if data["type"] == "personal_message":
+                    new_cchat = PersonalChatTab(self.master, self.client, dataa["to"], dataa["username"], title=f"ЛС с {dataa['username']}")
+                    self.master.add(new_cchat, text=f"ЛС с {dataa['username']}")
+                    sender = dataa["username"]
+                    recipient = dataa["to"]
+                    message = dataa["message"]
+                    new_cchat.personal_chat.configure(state="normal")
+                    new_cchat.personal_chat.insert("end", f"{sender} to {recipient}: {message}\n")
+                    new_cchat.personal_chat.configure(state="disabled")
+                    new_cchat.personal_chat.see("end")  #добавить бы чтобы вообщем клиент писал и у другого клиента появлялся чат с этим клиентом
+            except:
+                break
     def send_msg(self):
         if not self.check_username():
             return
@@ -130,29 +148,39 @@ class ChatTab(ctk.CTkFrame):
         self.chat.insert("end", f"{sender}: {text}\n")
         self.chat.configure(state="disabled")
         self.chat.see("end")
+
+
+
+
+
+# ===================== Класс для вкладки ЛС =====================
 class PersonalChatTab(ctk.CTkFrame):
-    def __init__(self, master, client, username_entry, choosen_entry, title="Личный Чат"):
+    def __init__(self, master, client, username_entry, choosen_entry, title="Лс С кем-то"):
         super().__init__(master)
-        self.client = client                  # сокет клиента
-        self.username_entry = username_entry  # ссылка на Entry с ником
-        self.choosen_entry = choosen_entry    # ссылка на Entry с ником получателя
+        
+        self.client = client                
+        self.username_entry = username_entry  
+        self.choosen_entry = choosen_entry 
+
+        #Сам чат, текст бокс с которым надо работать 
+
         self.personal_chat = ctk.CTkTextbox(self, width=400, height=150)
         self.personal_chat.pack(pady=5)
         self.personal_chat.configure(state="disabled")
         self.personal_entry = ctk.CTkEntry(self, placeholder_text="Введите ЛС", width=200)
         self.personal_entry.pack(pady=5)
 
+        # Кнопка отправки ЛС
         self.send_personal_btn = ctk.CTkButton(self, text="Send Personal", command=self.send_personal_msg)
         self.send_personal_btn.pack(pady=5)
 
-        threading.Thread(target=self.receive_personal_msg, daemon=True).start()
-
+        
     def send_personal_msg(self):
         user = self.username_entry.get().strip()
         choosen = self.choosen_entry.get().strip()
         msg = self.personal_entry.get().strip()
 
-        if not user or not msg:
+        if not user or not msg: 
             return
 
         try:
@@ -171,21 +199,7 @@ class PersonalChatTab(ctk.CTkFrame):
         except:
             print("Соединение с сервером потеряно")
 
-    def receive_personal_msg(self):
-        while True:
-            try:
-               
-                data = json.loads(data)
-                if data["type"] == "personal_message":
-                    sender = data["username"]
-                    recipient = data["to"]
-                    message = data["message"]
-                    self.personal_chat.configure(state="normal")
-                    self.personal_chat.insert("end", f"{sender} to {recipient}: {message}\n")
-                    self.personal_chat.configure(state="disabled")
-                    self.personal_chat.see("end")  #добавить бы чтобы вообщем клиент писал и у другого клиента появлялся чат с этим клиентом
-            except:
-                break
+    
 
 
 # ===================== Главный класс приложения =====================
@@ -198,19 +212,8 @@ class MainApp(ctk.CTk):
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
 
-        self.tab_count = 0
 
-      
-        self.new_tab_btn = ctk.CTkButton(self, text="Новый чат", command=self.add_new_tab)
-        self.new_tab_btn.pack(pady=5)
-
-        self.add_new_tab()
-
-    def add_new_tab(self):
-        self.tab_count += 1
-        chat_tab = ChatTab(self.notebook, title=f"Чат {self.tab_count}")
-        self.notebook.add(chat_tab, text=f"Чат {self.tab_count}")
-        self.notebook.select(chat_tab)  
+    
 
 # ===================== Запуск =====================
 if __name__ == "__main__":
