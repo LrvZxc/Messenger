@@ -38,7 +38,7 @@ class ChatTab(ctk.CTkFrame):
         self.chat.pack(pady=10)
         self.chat.configure(state="disabled")
 
-        # Поле ввода сообщения
+        # Поле ввода сообщенияF
         self.entry = ctk.CTkEntry(self, placeholder_text="Введите сообщение...", width=300)
         self.entry.pack(side="left", padx=5)
 
@@ -46,7 +46,7 @@ class ChatTab(ctk.CTkFrame):
         self.send_btn.pack(side="left", padx=5)
 
         # Личные сообщения
-        threading.Thread(target=self.receive_personal_msg, daemon=True).start()
+        #threading.Thread(target=self.receive_personal_msg, daemon=True).start() # не нужно? чек чат гпт. через джсон 
 
 
         self.id_entry = ctk.CTkEntry(self, placeholder_text="Никнейм для ЛС")
@@ -79,24 +79,7 @@ class ChatTab(ctk.CTkFrame):
         self.client.sendall(json.dumps({"type": "usernametoadd", "username": name}).encode("utf-8"))
         return True
 
-    def receive_personal_msg(self):
-        data = self.client.recv(1024).decode("utf-8")
-        while True:
-            try:
-               
-                dataa = json.loads(data)
-                if data["type"] == "personal_message":
-                    new_cchat = PersonalChatTab(self.master, self.client, dataa["to"], dataa["username"], title=f"ЛС с {dataa['username']}")
-                    self.master.add(new_cchat, text=f"ЛС с {dataa['username']}")
-                    sender = dataa["username"]
-                    recipient = dataa["to"]
-                    message = dataa["message"]
-                    new_cchat.personal_chat.configure(state="normal")
-                    new_cchat.personal_chat.insert("end", f"{sender} to {recipient}: {message}\n")
-                    new_cchat.personal_chat.configure(state="disabled")
-                    new_cchat.personal_chat.see("end")  #добавить бы чтобы вообщем клиент писал и у другого клиента появлялся чат с этим клиентом
-            except:
-                break
+    
     def send_msg(self):
         if not self.check_username():
             return
@@ -131,6 +114,21 @@ class ChatTab(ctk.CTkFrame):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client.connect((HOST, PORT))
 
+
+    def create_personal_tab(self, sender):
+        if sender not in self.master.personal_tabs:
+            
+            new_chat = PersonalChatTab(self.master, self.client, self.username, self.id_entry, title=f"ЛС с {sender}")
+            self.master.personal_tabs[sender] = new_chat
+            self.master.add(new_chat, text=f"ЛС с {sender}")
+        return self.master.personal_tabs[sender]
+    
+
+    def personal_msg_insert(self, pchat, text, sender):
+        pchat.personal_chat.configure(state="normal")
+        pchat.personal_chat.insert("end", f"{sender}: {text}\n")
+        pchat.personal_chat.configure(state="disabled")
+        pchat.personal_chat.see("end")
     def receive_msg(self):
         while True:
             try:
@@ -139,7 +137,16 @@ class ChatTab(ctk.CTkFrame):
                 if data["type"] == "message":
                     sender = data["username"]
                     text = data["message"]
-                    self.after(0, self.chat_insert, text, sender)
+                    self.master.after(0, self.chat_insert, text, sender) # Используем after для обновления из другого потока ведь tkinter 
+                    #не потокобезопасен
+                elif data["type"] == "personal_message":
+                    sender = data["username"]
+                    text = data["message"]
+                    self.master.after(0, lambda s = sender, t =text: self.chat_insert(t, s)) # Вставляем в общий чат что пришло ЛС
+                    self.master.after(0, lambda s = sender, t =text: self.personal_msg_insert(self.create_personal_tab(s), t, s))
+                    
+                                      
+
             except:
                 break
 
@@ -157,7 +164,7 @@ class ChatTab(ctk.CTkFrame):
 class PersonalChatTab(ctk.CTkFrame):
     def __init__(self, master, client, username_entry, choosen_entry, title="Лс С кем-то"):
         super().__init__(master)
-        
+        self.app = master
         self.client = client                
         self.username_entry = username_entry  
         self.choosen_entry = choosen_entry 
@@ -206,6 +213,7 @@ class PersonalChatTab(ctk.CTkFrame):
 class MainApp(ctk.CTk):
     def __init__(self):
         super().__init__()
+        self.personal_tabs = {}
         self.geometry("800x700")
         self.title("Multi Chat Client")
 
@@ -221,4 +229,6 @@ if __name__ == "__main__":
     ctk.set_default_color_theme("blue")
 
     app = MainApp()
+    main_chat_tab = ChatTab(app, title="Общий чат")
+    app.notebook.add(main_chat_tab, text="Общий чат")
     app.mainloop()
