@@ -104,8 +104,8 @@ class ChatTab(ctk.CTkFrame):
 
     # Создаём новую вкладку для ЛС
         personal_tab = PersonalChatTab(self.master, self.client, self.username, self.id_entry, title=f"ЛС с {self.choosen}")
-        self.master.add(personal_tab, text=f"ЛС с {self.choosen}")
-        self.master.select(personal_tab)
+        self.master.notebook.add(personal_tab, text=f"ЛС с {self.choosen}")
+        self.master.notebook.select(personal_tab)
 
         print(f"Выбран получатель: {self.choosen}")
     
@@ -116,15 +116,18 @@ class ChatTab(ctk.CTkFrame):
 
 
     def create_personal_tab(self, sender):
+        print("Создаём вкладку ЛС")
         if sender not in self.master.personal_tabs:
             
             new_chat = PersonalChatTab(self.master, self.client, self.username, self.id_entry, title=f"ЛС с {sender}")
+            print("Вкладка создана")
             self.master.personal_tabs[sender] = new_chat
-            self.master.add(new_chat, text=f"ЛС с {sender}")
+            self.master.notebook.add(new_chat, text=f"ЛС с {sender}")
         return self.master.personal_tabs[sender]
     
 
     def personal_msg_insert(self, pchat, text, sender):
+        print("Активация действия personal_msg_insert")
         pchat.personal_chat.configure(state="normal")
         pchat.personal_chat.insert("end", f"{sender}: {text}\n")
         pchat.personal_chat.configure(state="disabled")
@@ -134,16 +137,21 @@ class ChatTab(ctk.CTkFrame):
             try:
                 data = self.client.recv(1024).decode("utf-8")
                 data = json.loads(data)
+                print("Получено сообщение:", data)
+                print("Тип сообщения:", data["type"])
                 if data["type"] == "message":
                     sender = data["username"]
                     text = data["message"]
                     self.master.after(0, self.chat_insert, text, sender) # Используем after для обновления из другого потока ведь tkinter 
                     #не потокобезопасен
-                elif data["type"] == "personal_message":
-                    sender = data["username"]
+                elif data["type"] == "message_from_server":
+                    print("Получено ЛС")
+                    sender = data["from"]
+                    print("Отправитель ЛС:", sender)
                     text = data["message"]
-                    self.master.after(0, lambda s = sender, t =text: self.chat_insert(t, s)) # Вставляем в общий чат что пришло ЛС
+                    print("Текст ЛС:", text)
                     self.master.after(0, lambda s = sender, t =text: self.personal_msg_insert(self.create_personal_tab(s), t, s))
+                    
                     
                                       
 
@@ -164,7 +172,7 @@ class ChatTab(ctk.CTkFrame):
 class PersonalChatTab(ctk.CTkFrame):
     def __init__(self, master, client, username_entry, choosen_entry, title="Лс С кем-то"):
         super().__init__(master)
-        self.app = master
+        self.app = master #зачем это? 
         self.client = client                
         self.username_entry = username_entry  
         self.choosen_entry = choosen_entry 
@@ -188,9 +196,11 @@ class PersonalChatTab(ctk.CTkFrame):
         msg = self.personal_entry.get().strip()
 
         if not user or not msg: 
+            print("Никнейм или сообщение не введены ::: not user or not msg")
             return
 
         try:
+            print(f"Отправка ЛС {msg} от {user} к {choosen}")
             self.client.sendall(json.dumps({
                 "type": "personal_message",
                 "username": user,
@@ -228,7 +238,7 @@ if __name__ == "__main__":
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
-    app = MainApp()
+    app = MainApp() #master/app 
     main_chat_tab = ChatTab(app, title="Общий чат")
     app.notebook.add(main_chat_tab, text="Общий чат")
     app.mainloop()
