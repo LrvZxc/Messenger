@@ -195,9 +195,9 @@ class PersonalChatTab(ctk.CTkFrame):
         choosen = self.choosen_entry.get().strip()
         msg = self.personal_entry.get().strip()
 
-        if not user or not msg: 
-            print("Никнейм или сообщение не введены ::: not user or not msg")
-            return
+      #  if not user or not msg: 
+           # print("Никнейм или сообщение не введены ::: not user or not msg")
+            #return
 
         try:
             print(f"Отправка ЛС {msg} от {user} к {choosen}")
