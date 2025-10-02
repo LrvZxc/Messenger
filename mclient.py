@@ -11,6 +11,7 @@ PORT = 45203
 class ChatTab(ctk.CTkFrame):
     def __init__(self, master, title="Общий Чат"):
         super().__init__(master)
+        self.chatsss = {}
         self.title = title
         self.client = None
         self.choosen = ""
@@ -103,9 +104,16 @@ class ChatTab(ctk.CTkFrame):
             return
 
     # Создаём новую вкладку для ЛС
-        personal_tab = PersonalChatTab(self.master, self.client, self.username, self.id_entry, title=f"ЛС с {self.choosen}")
-        self.master.notebook.add(personal_tab, text=f"ЛС с {self.choosen}")
-        self.master.notebook.select(personal_tab)
+        if self.choosen not in self.master.personal_tabs: #мясо 
+            personal_tab = PersonalChatTab(self.master, self.client, self.username, choosen_entry=self.choosen, title=f"ЛС с {self.choosen}", chat_name=self.choosen)
+            self.chatsss[self.choosen] = personal_tab
+            print("Вкладка создана")
+            self.master.personal_tabs[self.choosen] = personal_tab
+            self.master.notebook.add(personal_tab, text=f"ЛС с {self.choosen}")
+            self.master.notebook.select(personal_tab)
+        else:
+            self.master.notebook.select(self.master.personal_tabs[self.choosen])
+            
 
         print(f"Выбран получатель: {self.choosen}")
     
@@ -118,12 +126,15 @@ class ChatTab(ctk.CTkFrame):
     def create_personal_tab(self, sender):
         print("Создаём вкладку ЛС")
         if sender not in self.master.personal_tabs:
-            
-            new_chat = PersonalChatTab(self.master, self.client, self.username, self.id_entry, title=f"ЛС с {sender}")
+            new_chat = PersonalChatTab(self.master, self.client, self.username, choosen_entry=sender, title=f"ЛС с {sender}", chat_name=sender)
+            self.chatsss[sender] = new_chat
             print("Вкладка создана")
             self.master.personal_tabs[sender] = new_chat
             self.master.notebook.add(new_chat, text=f"ЛС с {sender}")
-        return self.master.personal_tabs[sender]
+            return self.master.personal_tabs[sender]
+        else:
+            return self.master.personal_tabs[sender]
+        
     
 
     def personal_msg_insert(self, pchat, text, sender):
@@ -145,6 +156,7 @@ class ChatTab(ctk.CTkFrame):
                     self.master.after(0, self.chat_insert, text, sender) # Используем after для обновления из другого потока ведь tkinter 
                     #не потокобезопасен
                 elif data["type"] == "message_from_server":
+                
                     print("Получено ЛС")
                     sender = data["from"]
                     print("Отправитель ЛС:", sender)
@@ -170,9 +182,10 @@ class ChatTab(ctk.CTkFrame):
 
 # ===================== Класс для вкладки ЛС =====================
 class PersonalChatTab(ctk.CTkFrame):
-    def __init__(self, master, client, username_entry, choosen_entry, title="Лс С кем-то"):
+    def __init__(self, master, client, username_entry, choosen_entry, chat_name, title="Лс С кем-то"):
         super().__init__(master)
-        self.app = master #зачем это? 
+        self.chat_name = chat_name
+        self.app = master 
         self.client = client                
         self.username_entry = username_entry  
         self.choosen_entry = choosen_entry 
@@ -190,9 +203,9 @@ class PersonalChatTab(ctk.CTkFrame):
         self.send_personal_btn.pack(pady=5)
 
         
-    def send_personal_msg(self):
+    def send_personal_msg(self): # chat
         user = self.username_entry.get().strip()
-        choosen = self.choosen_entry.get().strip()
+        #choosen = self.choosen_entry.get().strip()
         msg = self.personal_entry.get().strip()
 
       #  if not user or not msg: 
@@ -200,16 +213,16 @@ class PersonalChatTab(ctk.CTkFrame):
             #return
 
         try:
-            print(f"Отправка ЛС {msg} от {user} к {choosen}")
+            print(f"Отправка ЛС {msg} от {user} к {self.chat_name}")
             self.client.sendall(json.dumps({
                 "type": "personal_message",
                 "username": user,
                 "message": msg,
-                "to": choosen
+                "to": self.chat_name
             }).encode("utf-8"))
 
             self.personal_chat.configure(state="normal")
-            self.personal_chat.insert("end", f"{user} to {choosen}: {msg}\n")
+            self.personal_chat.insert("end", f"{user} to {self.chat_name}: {msg}\n")
             self.personal_chat.configure(state="disabled")
             self.personal_entry.delete(0, "end")
             self.personal_chat.see("end")
