@@ -138,7 +138,7 @@ class ChatTab(ctk.CTkFrame):
     
 
     def personal_msg_insert(self, pchat, text, sender):
-        print("Активация действия personal_msg_insert")
+        print("Активация действия personal_msg_insert")  
         pchat.personal_chat.configure(state="normal")
         pchat.personal_chat.insert("end", f"{sender}: {text}\n")
         pchat.personal_chat.configure(state="disabled")
